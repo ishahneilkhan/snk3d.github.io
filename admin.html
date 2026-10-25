@@ -1,42 +1,92 @@
 <!DOCTYPE html>
 <html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
 <title>Admin — Shah Neil Khan</title><link rel="stylesheet" href="style.css"></head>
 <body><main><div id="app"></div></main>
 <script src="data.js"></script><script src="common.js"></script>
 <script>
 const app=document.getElementById('app');
-let list;try{list=JSON.parse(localStorage.getItem('projects')||'null')}catch(e){}
-if(!list)list=(window.PROJECTS||[]).slice();
-const $=s=>app.querySelector(s),rid=()=>Math.random().toString(36).slice(2,6).toUpperCase();
-function persist(){try{localStorage.setItem('projects',JSON.stringify(list))}catch(e){alert('জায়গা শেষ — ছবি ছোট করুন বা পুরনো প্রজেক্ট মুছুন')}}
-function toData(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1200/Math.max(im.width,im.height));const c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.72))};im.onerror=rej;im.src=r.result};r.onerror=rej;r.readAsDataURL(file)})}
+const $=s=>app.querySelector(s);
+const ALPHA='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const rid=()=>Array.from(crypto.getRandomValues(new Uint8Array(6)),b=>ALPHA[b%32]).join('');
+let list=[];
+
+async function api(path,opt={}){
+  try{
+    const r=await fetch(path,{credentials:'same-origin',headers:{'Content-Type':'application/json'},...opt});
+    let j=null;try{j=await r.json()}catch(e){}
+    return {ok:r.ok,status:r.status,data:j};
+  }catch(e){return {ok:false,status:0,data:null}}
+}
+function toData(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1200/Math.max(im.width,im.height));const c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.8))};im.onerror=rej;im.src=r.result};r.onerror=rej;r.readAsDataURL(file)})}
+
+async function load(){
+  const r=await api('/api/admin/projects');
+  if(r.status===401){login();return}
+  if(!r.ok){app.innerHTML='<div class="box center"><p class="err">সার্ভারের সাথে সংযোগ হয়নি। D1 / R2 / পাসওয়ার্ড সেটআপ ঠিক আছে কিনা দেখুন।</p></div>';return}
+  list=r.data.projects||[];main();
+}
+
+function login(){
+  app.innerHTML=`<div class="box center"><div class="mono">Admin</div><h1>Shah Neil Khan</h1>
+  <label class="mono" for="pw">পাসওয়ার্ড</label><input id="pw" type="password" autocomplete="current-password">
+  <p class="err" id="le"></p><button class="pri" id="lg">ঢুকুন</button></div>`;
+  const go=async()=>{
+    $('#le').textContent='';
+    const r=await api('/api/admin/login',{method:'POST',body:JSON.stringify({password:$('#pw').value})});
+    if(r.ok){load()}else{$('#le').textContent=(r.data&&r.data.error)||'লগইন হয়নি'}
+  };
+  $('#lg').onclick=go;
+  $('#pw').addEventListener('keydown',e=>{if(e.key==='Enter')go()});
+  $('#pw').focus();
+}
+
 function main(){
-  app.innerHTML=`<div class="mono">Admin (শুধু আপনার কম্পিউটারে)</div><h1>Shah Neil Khan</h1>
-  <div class="row"><button class="pri" id="nw">+ নতুন প্রজেক্ট</button><button id="ex">data.js ডাউনলোড (সাইটে আপলোডের জন্য)</button><button id="rs">data.js থেকে রিসেট</button></div>
+  const old=(window.PROJECTS||[]).filter(p=>!list.some(x=>x.code===p.code));
+  app.innerHTML=`<div class="mono">Admin</div><h1>Shah Neil Khan</h1>
+  <div class="row"><button class="pri" id="nw">+ নতুন প্রজেক্ট</button>${old.length?`<button id="im">data.js থেকে ${old.length}টি প্রজেক্ট আনুন</button>`:''}<button id="lo">লগআউট</button></div>
   <div id="fm"></div>
   ${list.length?list.map((p,i)=>`<div class="box item"><div><b>${esc(p.title)}</b><div class="mono">${esc(p.client)} · কোড ${esc(p.code)}</div></div><div><button data-v="${i}">দেখুন</button> <button data-d="${i}">মুছুন</button></div></div>`).join(''):'<p class="mono">এখনো কোনো প্রজেক্ট নেই।</p>'}
-  <p class="mono">ক্লায়েন্টের লিংক: আপনার সাইটের ঠিকানা + # + কোড (যেমন https://আপনার-সাইট/#A7K2)</p>`;
+  <p class="mono">ক্লায়েন্টের লিংক: সাইটের ঠিকানা + # + কোড (যেমন https://আপনার-সাইট/#A7K2XY)</p>`;
   $('#nw').onclick=form;
-  $('#ex').onclick=()=>{const b=new Blob(['window.PROJECTS='+JSON.stringify(list)+';'],{type:'text/javascript'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='data.js';a.click()};
-  $('#rs').onclick=()=>{if(confirm('এই কম্পিউটারের পরিবর্তন মুছে data.js এর অবস্থায় ফিরবেন?')){localStorage.removeItem('projects');list=(window.PROJECTS||[]).slice();main()}};
+  $('#lo').onclick=async()=>{await api('/api/admin/logout',{method:'POST'});login()};
+  if($('#im'))$('#im').onclick=async()=>{
+    const b=$('#im');b.disabled=true;let n=0,fail=0;
+    for(const p of old){
+      b.textContent=`আনা হচ্ছে… ${++n}/${old.length}`;
+      const r=await api('/api/admin/projects',{method:'POST',body:JSON.stringify({title:p.title,client:p.client,code:p.code,img:p.img||'',src:p.src,date:p.date})});
+      if(!r.ok)fail++;
+    }
+    if(fail)alert(fail+'টি প্রজেক্ট আনা যায়নি');
+    load();
+  };
   app.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{renderProject(app,list[+b.dataset.v]);app.insertAdjacentHTML('afterbegin','<button id="bk">← ফিরুন</button>');$('#bk').onclick=main});
-  app.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{if(confirm('মুছে ফেলবেন?')){list.splice(+b.dataset.d,1);persist();main()}});
+  app.querySelectorAll('[data-d]').forEach(b=>b.onclick=async()=>{
+    const p=list[+b.dataset.d];
+    if(!confirm('মুছে ফেলবেন?'))return;
+    const r=await api('/api/admin/projects/'+encodeURIComponent(p.id),{method:'DELETE'});
+    if(r.ok)load();else alert('মোছা যায়নি');
+  });
 }
+
 function form(){
   $('#fm').innerHTML=`<div class="box" style="margin-bottom:14px"><label class="mono" for="t">প্রজেক্টের নাম</label><input id="t">
   <label class="mono" for="c">ক্লায়েন্টের নাম</label><input id="c">
   <label class="mono" for="k">প্রজেক্ট কোড</label><input id="k" value="${rid()}">
-  <label class="mono" for="im">হাতের আঁকা (ছবি)</label><input id="im" type="file" accept="image/*">
+  <label class="mono" for="im2">হাতের আঁকা (ছবি)</label><input id="im2" type="file" accept="image/*">
   <label class="mono" for="sc">৩ডি কোড (এখানে পেস্ট করুন)</label><textarea id="sc"></textarea>
   <p class="err" id="fe"></p><button class="pri" id="sv">সেভ করুন</button></div>`;
   $('#sv').onclick=async()=>{
-    const t=$('#t').value.trim(),k=$('#k').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,''),s=$('#sc').value,f=$('#im').files[0];
+    const t=$('#t').value.trim(),k=$('#k').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,''),s=$('#sc').value,f=$('#im2').files[0];
     if(!t||!k||!s){$('#fe').textContent='নাম, কোড ও ৩ডি কোড দিন';return}
     if(list.some(x=>x.code===k)){$('#fe').textContent='এই কোড আগে ব্যবহার হয়েছে';return}
     let img='';if(f){try{img=await toData(f)}catch(e){$('#fe').textContent='ছবিটি পড়া যায়নি';return}}
-    list.push({id:rid()+Date.now().toString(36),title:t,client:$('#c').value.trim(),code:k,img,src:s,date:new Date().toISOString().slice(0,10)});
-    persist();main();
+    const sv=$('#sv');sv.disabled=true;sv.textContent='সেভ হচ্ছে…';
+    const r=await api('/api/admin/projects',{method:'POST',body:JSON.stringify({title:t,client:$('#c').value.trim(),code:k,img,src:s,date:new Date().toISOString().slice(0,10)})});
+    if(r.ok){load()}
+    else{sv.disabled=false;sv.textContent='সেভ করুন';$('#fe').textContent=(r.data&&r.data.error)||(r.status===401?'আবার লগইন করুন':'সেভ হয়নি')}
   };
 }
-main();
+
+load();
 </script></body></html>
