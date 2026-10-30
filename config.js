@@ -7,3 +7,6 @@ window.SITE = {
   phone: "",
   email: ""
 };
+
+// ক্লায়েন্ট প্রজেক্ট ও ছবির জন্য Cloudflare Worker এর ঠিকানা (শেষে / ছাড়া)।
+window.SNK_API = "https://snk-api.heilbd21.workers.dev";

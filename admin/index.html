@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin — Shah Neil Khan</title><meta name="robots" content="noindex"><link rel="stylesheet" href="../review/style.css"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E%F0%9F%8F%A0%3C/text%3E%3C/svg%3E"><meta name="theme-color" content="#0c0c0e"></head>
+<body><main><div id="app"></div></main>
+<script src="../config.js"></script>
+<script>
+const API=(window.SNK_API||'').replace(/\/$/,''),app=document.getElementById('app');let TOKEN='';
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const $=s=>app.querySelector(s);
+const rid=()=>{const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',b=new Uint32Array(10);crypto.getRandomValues(b);return[...b].map(x=>a[x%a.length]).join('')};
+const H=(x={})=>({Authorization:'Bearer '+TOKEN,...x});
+function login(msg){
+  app.innerHTML=`<div class="center box"><div class="mono">Admin</div><h1>Shah Neil Khan</h1><p class="mono">শুধু মালিকের জন্য</p>
+  <label class="mono" for="tk">অ্যাডমিন টোকেন</label><input id="tk" type="password" autocomplete="off"><p class="err" id="er">${esc(msg||'')}</p><button class="pri" id="go">ঢুকুন</button></div>`;
+  const go=async()=>{TOKEN=$('#tk').value.trim();if(!TOKEN)return;$('#er').textContent='যাচাই হচ্ছে…';
+    try{const r=await fetch(API+'/api/admin/projects',{headers:H()});if(r.status===401){TOKEN='';login('টোকেন ভুল');return}if(!r.ok)throw 0;main((await r.json()).projects)}catch(e){TOKEN='';login('সার্ভারে যোগাযোগ করা যায়নি')}};
+  $('#go').onclick=go;$('#tk').onkeydown=e=>{if(e.key==='Enter')go()};}
+async function reload(){const r=await fetch(API+'/api/admin/projects',{headers:H()});if(r.ok)main((await r.json()).projects);else login('আবার ঢুকুন')}
+function link(c){return new URL('../review/',location.href).href+'#'+c}
+function main(list){
+  app.innerHTML=`<div class="mono">Admin</div><h1>প্রজেক্ট</h1><div class="row"><button class="pri" id="nw">+ নতুন প্রজেক্ট</button><button id="lo">বের হন</button></div><div id="fm"></div>
+  ${list.length?list.map(p=>`<div class="box item"><div><b>${esc(p.title)}</b><div class="mono">${esc(p.client||'')} · কোড ${esc(p.code)} ${p.has_drawing?'· ছবি আছে':''}</div></div><div><button data-c="${esc(p.code)}">লিংক কপি</button> <button data-e="${esc(p.code)}">সম্পাদনা</button> <button data-d="${esc(p.code)}">মুছুন</button></div></div>`).join(''):'<p class="mono">এখনো কোনো প্রজেক্ট নেই।</p>'}
+  <p class="mono" id="ms"></p>`;
+  $('#nw').onclick=()=>form({code:rid()});$('#lo').onclick=()=>{TOKEN='';login()};
+  app.querySelectorAll('[data-c]').forEach(b=>b.onclick=async()=>{const l=link(b.dataset.c);try{await navigator.clipboard.writeText(l);$('#ms').textContent='লিংক কপি হয়েছে: '+l}catch(e){$('#ms').textContent=l}});
+  app.querySelectorAll('[data-e]').forEach(b=>b.onclick=async()=>{const r=await fetch(API+'/api/project/'+b.dataset.e);if(r.ok){const p=await r.json();form({code:p.code,title:p.title,client:p.client||'',scene_code:p.scene_code||'',edit:true})}});
+  app.querySelectorAll('[data-d]').forEach(b=>b.onclick=async()=>{if(!confirm('প্রজেক্ট ও ছবি স্থায়ীভাবে মুছে ফেলবেন?'))return;const r=await fetch(API+'/api/admin/project/'+b.dataset.d,{method:'DELETE',headers:H()});if(r.ok)reload();else $('#ms').textContent='মোছা যায়নি'});}
+function shrink(file){return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1600/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);c.toBlob(b=>b?res(b):rej(),'image/jpeg',.82)};im.onerror=rej;im.src=fr.result};fr.onerror=rej;fr.readAsDataURL(file)})}
+function form(p){
+  $('#fm').innerHTML=`<div class="box" style="margin-bottom:14px"><label class="mono" for="t">প্রজেক্টের নাম</label><input id="t" value="${esc(p.title||'')}">
+  <label class="mono" for="c">ক্লায়েন্টের নাম</label><input id="c" value="${esc(p.client||'')}">
+  <label class="mono" for="k">প্রজেক্ট কোড (৬-২০ অক্ষর/সংখ্যা)</label><input id="k" value="${esc(p.code)}" ${p.edit?'readonly':''}>
+  <label class="mono" for="im">হাতের আঁকা ছবি ${p.edit?'(না দিলে আগেরটা থাকবে)':''}</label><input id="im" type="file" accept="image/*">
+  <label class="mono" for="sc">৩ডি কোড</label><textarea id="sc">${esc(p.scene_code||'')}</textarea><p class="err" id="fe"></p><button class="pri" id="sv">সেভ করুন</button></div>`;
+  $('#sv').onclick=async()=>{const code=$('#k').value.trim().toUpperCase(),title=$('#t').value.trim();
+    if(!/^[A-Z0-9]{6,20}$/.test(code)){$('#fe').textContent='কোড ৬-২০ অক্ষর/সংখ্যার হতে হবে (বড় হাতের ইংরেজি ও সংখ্যা)';return}
+    if(!title){$('#fe').textContent='নাম দিন';return}
+    $('#sv').disabled=true;$('#fe').textContent='সেভ হচ্ছে…';
+    try{
+      let r=await fetch(API+'/api/admin/project',{method:'POST',headers:H({'Content-Type':'application/json'}),body:JSON.stringify({code,title,client:$('#c').value.trim(),scene_code:$('#sc').value})});
+      if(!r.ok){const j=await r.json().catch(()=>({}));throw new Error(j.error||r.status)}
+      const f=$('#im').files[0];
+      if(f){const b=await shrink(f);r=await fetch(API+'/api/admin/drawing/'+code,{method:'PUT',headers:H({'Content-Type':'image/jpeg'}),body:b});if(!r.ok)throw new Error('ছবি আপলোড হয়নি ('+r.status+')')}
+      reload();
+    }catch(e){$('#sv').disabled=false;$('#fe').textContent='সেভ হয়নি: '+e.message}};}
+login();
+</script></body></html>
