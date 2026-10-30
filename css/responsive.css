@@ -1,0 +1,24 @@
+/* Responsive rules: tablet and phone. */
+@media (max-width:64rem){
+  .hero-grid{grid-template-columns:1fr}
+  .dims{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .project-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:48rem){
+  .nav-toggle{display:inline-block}
+  .site-nav{display:none;position:absolute;left:0;right:0;top:100%;flex-direction:column;align-items:flex-start;gap:0;background:var(--charcoal);border-bottom:1px solid var(--line);padding:.5rem 1.25rem 1rem}
+  .site-nav.is-open{display:flex}
+  .site-nav a{width:100%;padding:.8rem 0}
+  .site-nav .nav-cta{margin-top:.5rem;width:auto}
+  .rule-list{grid-template-columns:1fr}
+  .dims{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .plan-tool{grid-template-columns:1fr}
+  .footer-grid{grid-template-columns:1fr}
+  .studio-stage{aspect-ratio:4/5}
+  .studio-controls{grid-template-columns:1fr}
+}
+@media (max-width:34rem){
+  .project-grid{grid-template-columns:1fr}
+  .dims{grid-template-columns:1fr}
+  .wm-arch{font-size:.95rem}
+}
