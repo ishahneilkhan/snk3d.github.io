@@ -8,19 +8,36 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const $=s=>app.querySelector(s);
 const rid=()=>{const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',b=new Uint32Array(10);crypto.getRandomValues(b);return[...b].map(x=>a[x%a.length]).join('')};
 const H=(x={})=>({Authorization:'Bearer '+TOKEN,...x});
+const ERR={invalid_credentials:'ইমেইল বা পাসওয়ার্ড ভুল',too_many_attempts:'অনেকবার ভুল হয়েছে। ১৫ মিনিট পরে আবার চেষ্টা করুন।',unauthorized:'অনুমতি নেই (সেটআপ কী ভুল)',invalid_email:'ইমেইল ঠিক নয়'};
+const post=(p,b)=>fetch(API+p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
+function forget(){TOKEN='';try{localStorage.removeItem('snk_session')}catch(e){}}
 function login(msg){
   app.innerHTML=`<div class="center box"><div class="mono">Admin</div><h1>Shah Neil Khan</h1><p class="mono">শুধু মালিকের জন্য</p>
-  <label class="mono" for="tk">অ্যাডমিন টোকেন</label><input id="tk" type="password" autocomplete="off"><p class="err" id="er">${esc(msg||'')}</p><button class="pri" id="go">ঢুকুন</button></div>`;
-  const go=async()=>{TOKEN=$('#tk').value.trim();if(!TOKEN)return;$('#er').textContent='যাচাই হচ্ছে…';
-    try{const r=await fetch(API+'/api/admin/projects',{headers:H()});if(r.status===401){TOKEN='';login('টোকেন ভুল');return}if(!r.ok)throw 0;main((await r.json()).projects)}catch(e){TOKEN='';login('সার্ভারে যোগাযোগ করা যায়নি')}};
-  $('#go').onclick=go;$('#tk').onkeydown=e=>{if(e.key==='Enter')go()};}
-async function reload(){const r=await fetch(API+'/api/admin/projects',{headers:H()});if(r.ok)main((await r.json()).projects);else login('আবার ঢুকুন')}
+  <form id="lf" autocomplete="on"><label class="mono" for="em">ইমেইল</label><input id="em" name="username" type="email" autocomplete="username" required>
+  <label class="mono" for="pw">পাসওয়ার্ড</label><input id="pw" name="password" type="password" autocomplete="current-password" required>
+  <label style="display:flex;gap:8px;align-items:center;margin:0 0 10px;color:#a79d89;font-size:.85rem"><input id="rm" type="checkbox" style="width:auto;margin:0">এই ডিভাইসে ৩০ দিন মনে রাখুন (শুধু নিজের ব্যক্তিগত ডিভাইসে)</label>
+  <p class="err" id="er">${esc(msg||'')}</p><button class="pri" id="go" type="submit">ঢুকুন</button></form>
+  <details style="margin-top:18px"><summary class="mono" style="cursor:pointer">প্রথমবার? অ্যাকাউন্ট বানান / পাসওয়ার্ড ভুলে গেছেন?</summary>
+  <form id="sf" autocomplete="off" style="margin-top:10px"><label class="mono" for="se">ইমেইল</label><input id="se" type="email" required>
+  <label class="mono" for="sp">নতুন পাসওয়ার্ড (১০+ অক্ষর, লম্বা বাক্য ভালো)</label><input id="sp" type="password" minlength="10" required>
+  <label class="mono" for="sk">সেটআপ কী (Cloudflare এর ADMIN_TOKEN)</label><input id="sk" type="password" required>
+  <p class="err" id="se2"></p><button id="sb" type="submit">অ্যাকাউন্ট বানান</button></form></details></div>`;
+  $('#lf').onsubmit=async e=>{e.preventDefault();$('#er').textContent='যাচাই হচ্ছে…';
+    try{const r=await post('/api/login',{email:$('#em').value,password:$('#pw').value,remember:$('#rm').checked}),j=await r.json();
+      if(!r.ok){login(ERR[j.error]||'ঢোকা যায়নি');return}
+      TOKEN=j.token;if($('#rm').checked){try{localStorage.setItem('snk_session',TOKEN)}catch(e){}}reload()}
+    catch(e){login('সার্ভারে যোগাযোগ করা যায়নি')}};
+  $('#sf').onsubmit=async e=>{e.preventDefault();$('#se2').textContent='হচ্ছে…';
+    try{const r=await post('/api/setup',{email:$('#se').value,password:$('#sp').value,setup_key:$('#sk').value}),j=await r.json();
+      if(r.ok){login('অ্যাকাউন্ট তৈরি হয়েছে। এবার ইমেইল ও পাসওয়ার্ড দিয়ে ঢুকুন।')}else $('#se2').textContent=ERR[j.error]||j.error||'হয়নি'}
+    catch(e){$('#se2').textContent='সার্ভারে যোগাযোগ করা যায়নি'}};}
+async function reload(){const r=await fetch(API+'/api/admin/projects',{headers:H()});if(r.ok)main((await r.json()).projects);else{forget();login('আবার ঢুকুন')}}
 function link(c){return new URL('../review/',location.href).href+'#'+c}
 function main(list){
   app.innerHTML=`<div class="mono">Admin</div><h1>প্রজেক্ট</h1><div class="row"><button class="pri" id="nw">+ নতুন প্রজেক্ট</button><button id="lo">বের হন</button></div><div id="fm"></div>
   ${list.length?list.map(p=>`<div class="box item"><div><b>${esc(p.title)}</b><div class="mono">${esc(p.client||'')} · কোড ${esc(p.code)} ${p.has_drawing?'· ছবি আছে':''}</div></div><div><button data-c="${esc(p.code)}">লিংক কপি</button> <button data-e="${esc(p.code)}">সম্পাদনা</button> <button data-d="${esc(p.code)}">মুছুন</button></div></div>`).join(''):'<p class="mono">এখনো কোনো প্রজেক্ট নেই।</p>'}
   <p class="mono" id="ms"></p>`;
-  $('#nw').onclick=()=>form({code:rid()});$('#lo').onclick=()=>{TOKEN='';login()};
+  $('#nw').onclick=()=>form({code:rid()});$('#lo').onclick=async()=>{try{await fetch(API+'/api/admin/logout',{method:'POST',headers:H()})}catch(e){}forget();login()};
   app.querySelectorAll('[data-c]').forEach(b=>b.onclick=async()=>{const l=link(b.dataset.c);try{await navigator.clipboard.writeText(l);$('#ms').textContent='লিংক কপি হয়েছে: '+l}catch(e){$('#ms').textContent=l}});
   app.querySelectorAll('[data-e]').forEach(b=>b.onclick=async()=>{const r=await fetch(API+'/api/project/'+b.dataset.e);if(r.ok){const p=await r.json();form({code:p.code,title:p.title,client:p.client||'',scene_code:p.scene_code||'',edit:true})}});
   app.querySelectorAll('[data-d]').forEach(b=>b.onclick=async()=>{if(!confirm('প্রজেক্ট ও ছবি স্থায়ীভাবে মুছে ফেলবেন?'))return;const r=await fetch(API+'/api/admin/project/'+b.dataset.d,{method:'DELETE',headers:H()});if(r.ok)reload();else $('#ms').textContent='মোছা যায়নি'});}
@@ -42,5 +59,5 @@ function form(p){
       if(f){const b=await shrink(f);r=await fetch(API+'/api/admin/drawing/'+code,{method:'PUT',headers:H({'Content-Type':'image/jpeg'}),body:b});if(!r.ok)throw new Error('ছবি আপলোড হয়নি ('+r.status+')')}
       reload();
     }catch(e){$('#sv').disabled=false;$('#fe').textContent='সেভ হয়নি: '+e.message}};}
-login();
+(async()=>{let t='';try{t=localStorage.getItem('snk_session')||''}catch(e){}if(!t){login();return}TOKEN=t;try{const r=await fetch(API+'/api/admin/projects',{headers:H()});if(r.ok){main((await r.json()).projects);return}}catch(e){}forget();login()})();
 </script></body></html>
